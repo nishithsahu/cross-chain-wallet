@@ -1,10 +1,35 @@
-
+import { useEffect } from 'react';
 import { WalletConnect } from './components/WalletConnect';
 import { ChainSelector } from './components/ChainSelector';
 import { TransactionHistory } from './components/TransactionHistory';
-import { LayoutDashboard } from 'lucide-react';
+import { LayoutDashboard, Moon, Sun } from 'lucide-react';
+import { useStore } from './store/useStore';
+import { fetchTokenPrices } from './services/priceService';
 
 function App() {
+  const { theme, toggleTheme, setTokenPrices } = useStore();
+
+  useEffect(() => {
+    // Apply theme class to html element
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
+  useEffect(() => {
+    // Fetch prices on mount
+    const loadPrices = async () => {
+      const prices = await fetchTokenPrices();
+      setTokenPrices(prices);
+    };
+    loadPrices();
+    // Refresh prices every 5 minutes
+    const interval = setInterval(loadPrices, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [setTokenPrices]);
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-200">
       <header className="sticky top-0 z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800">
@@ -17,7 +42,16 @@ function App() {
               Cross-Chain Activity
             </h1>
           </div>
-          <WalletConnect />
+          <div className="flex items-center gap-4">
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              title="Toggle Theme"
+            >
+              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+            <WalletConnect />
+          </div>
         </div>
       </header>
 

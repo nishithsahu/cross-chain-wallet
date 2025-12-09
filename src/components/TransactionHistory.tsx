@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { fetchTransactionHistory } from '../services/alchemyService';
 import { ArrowUpRight, ArrowDownLeft, Loader2, AlertCircle } from 'lucide-react';
+import { ethers } from 'ethers';
 
 export const TransactionHistory: React.FC = () => {
     const {
@@ -12,7 +13,8 @@ export const TransactionHistory: React.FC = () => {
         isLoadingHistory,
         setLoadingHistory,
         historyError,
-        setHistoryError
+        setHistoryError,
+        tokenPrices
     } = useStore();
 
     useEffect(() => {
@@ -27,21 +29,40 @@ export const TransactionHistory: React.FC = () => {
             try {
                 const rawTxs = await fetchTransactionHistory(address, selectedChain);
 
-                const formattedTxs = rawTxs.map((tx: any) => ({
-                    hash: tx.hash,
-                    timestamp: Date.now(), // Alchemy transfer API doesn't return timestamp directly without getBlock. We'll use a placeholder or fetch block.
-                    // For minimal dashboard, we might skip exact timestamp or fetch it separately. 
-                    // Let's just use blockNum for display if timestamp is missing.
-                    type: tx.type,
-                    amount: tx.value?.toString() || '0',
-                    currency: tx.asset || 'ETH',
-                    otherParty: tx.type === 'sent' ? tx.to : tx.from,
-                    status: 'confirmed' as const, // Alchemy transfers are usually confirmed
-                    chain: selectedChain,
-                    blockNum: parseInt(tx.blockNum, 16)
+                // Fetch timestamps for blocks
+                const provider = new ethers.BrowserProvider(window.ethereum || (window as any).mockProvider || { request: () => { } });
+
+                const txsWithDetails = await Promise.all(rawTxs.map(async (tx: any) => {
+                    let timestamp = Date.now();
+                    try {
+                        // Only try to fetch block if we have a real provider and it's not mock data
+                        if (window.ethereum && tx.blockNum && !tx.blockNum.startsWith('0x1000')) {
+                            const block = await provider.getBlock(tx.blockNum);
+                            if (block) timestamp = block.timestamp * 1000;
+                        }
+                    } catch (e) {
+                        // Ignore block fetch errors
+                    }
+
+                    const amount = parseFloat(tx.value?.toString() || '0');
+                    const price = tokenPrices['ETH'] || 0; // Simplified: assuming ETH/Native token for now
+                    const usdValue = (amount * price).toFixed(2);
+
+                    return {
+                        hash: tx.hash,
+                        timestamp,
+                        type: tx.type,
+                        amount: amount.toString(),
+                        currency: tx.asset || 'ETH',
+                        usdValue,
+                        otherParty: tx.type === 'sent' ? tx.to : tx.from,
+                        status: 'confirmed' as const,
+                        chain: selectedChain,
+                        blockNum: parseInt(tx.blockNum, 16)
+                    };
                 }));
 
-                setTransactions(formattedTxs);
+                setTransactions(txsWithDetails);
             } catch (err: any) {
                 setHistoryError("Failed to load transactions. Please check your API key or network connection.");
             } finally {
@@ -50,7 +71,7 @@ export const TransactionHistory: React.FC = () => {
         };
 
         loadHistory();
-    }, [address, selectedChain, setTransactions, setLoadingHistory, setHistoryError]);
+    }, [address, selectedChain, setTransactions, setLoadingHistory, setHistoryError, tokenPrices]);
 
     if (!address) {
         return (
@@ -110,7 +131,7 @@ export const TransactionHistory: React.FC = () => {
                                 {tx.type === 'sent' ? '-' : '+'}{parseFloat(tx.amount).toFixed(4)} {tx.currency}
                             </div>
                             <div className="text-xs text-gray-500">
-                                Block: {tx.blockNum}
+                                {tx.usdValue && `$${tx.usdValue}`} • {new Date(tx.timestamp).toLocaleDateString()}
                             </div>
                         </div>
                     </div>

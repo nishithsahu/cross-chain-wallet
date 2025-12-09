@@ -36,6 +36,14 @@ interface AppState {
     setTransactions: (transactions: Transaction[]) => void;
     setLoadingHistory: (loading: boolean) => void;
     setHistoryError: (error: string | null) => void;
+
+    // Prices
+    tokenPrices: Record<string, number>;
+    setTokenPrices: (prices: Record<string, number>) => void;
+
+    // Theme
+    theme: 'light' | 'dark';
+    toggleTheme: () => void;
 }
 
 export const useStore = create<AppState>()(
@@ -60,10 +68,18 @@ export const useStore = create<AppState>()(
             setTransactions: (transactions) => set({ transactions }),
             setLoadingHistory: (isLoadingHistory) => set({ isLoadingHistory }),
             setHistoryError: (historyError) => set({ historyError }),
+
+            // Prices
+            tokenPrices: {},
+            setTokenPrices: (tokenPrices) => set({ tokenPrices }),
+
+            // Theme
+            theme: 'light',
+            toggleTheme: () => set((state) => ({ theme: state.theme === 'light' ? 'dark' : 'light' })),
         }),
         {
             name: 'cross-chain-wallet-storage',
-            partialize: (state) => ({ selectedChain: state.selectedChain }), // Only persist selectedChain
+            partialize: (state) => ({ selectedChain: state.selectedChain, theme: state.theme }), // Persist chain and theme
         }
     )
 );

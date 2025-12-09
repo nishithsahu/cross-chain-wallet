@@ -11,7 +11,7 @@ const CHAINS: { id: Chain; name: string; chainId: number; rpcUrl: string }[] = [
 ];
 
 export const ChainSelector: React.FC = () => {
-    const { selectedChain, setSelectedChain, chainId: walletChainId } = useStore();
+    const { selectedChain, setSelectedChain, chainId: walletChainId, setChainId } = useStore();
     const { isConnected } = useWallet();
 
     const handleChainChange = (chain: Chain) => {
@@ -19,7 +19,11 @@ export const ChainSelector: React.FC = () => {
     };
 
     const switchNetwork = async (targetChainId: number) => {
-        if (!window.ethereum) return;
+        if (!window.ethereum) {
+            // Mock mode: simulate switch
+            setChainId(targetChainId.toString());
+            return;
+        }
         try {
             await window.ethereum.request({
                 method: 'wallet_switchEthereumChain',
